@@ -1,0 +1,126 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Common Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && request.auth.token.email == "soumahoroabdul211@gmail.com";
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Articles Validation
+    function isValidArticle(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.title is string && data.title.size() <= 200
+        && data.content is string && data.content.size() <= 100000
+        && data.category is string && data.category.size() <= 50
+        && data.author is string && data.author.size() <= 100
+        && data.views is number && data.views >= 0;
+    }
+
+    match /articles/{articleId} {
+      allow get: if true;
+      allow list: if true; // Public list to let users read and discover articles
+      
+      allow create: if isAdmin() 
+        && isValidId(articleId) 
+        && isValidArticle(incoming())
+        && incoming().createdAt is string && incoming().createdAt.size() <= 40
+        && incoming().updatedAt is string && incoming().updatedAt.size() <= 40
+        && incoming().id == articleId
+        && incoming().views == 0;
+        
+      allow update: if (
+        // Action 1: Admin edit details
+        (isAdmin() 
+          && isValidArticle(incoming()) 
+          && incoming().updatedAt is string && incoming().updatedAt.size() <= 40
+          && incoming().createdAt == existing().createdAt
+          && incoming().id == existing().id
+          && incoming().diff(existing()).affectedKeys().hasAny(['title', 'content', 'category', 'updatedAt', 'readTime']))
+        || 
+        // Action 2: Incremental view count update by any user
+        (isValidArticle(incoming())
+          && incoming().views == existing().views + 1
+          && incoming().id == existing().id
+          && incoming().title == existing().title
+          && incoming().content == existing().content
+          && incoming().category == existing().category
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == existing().updatedAt
+          && incoming().diff(existing()).affectedKeys().hasOnly(['views']))
+      );
+      
+      allow delete: if isAdmin();
+    }
+
+    // Stats Validation
+    function isValidStats(data) {
+      return data.totalVisits is number && data.totalVisits >= 0;
+    }
+
+    match /stats/{docId} {
+      allow get: if true; // Let user check/sync global statistics
+      allow list: if isAdmin();
+
+      allow create: if isValidId(docId)
+        && isValidStats(incoming())
+        && incoming().lastUpdated is string && incoming().lastUpdated.size() <= 40;
+
+      allow update: if isValidId(docId)
+        && isValidStats(incoming())
+        && (
+          isAdmin() ||
+          // Public user can increment totalVisits
+          (incoming().totalVisits == existing().totalVisits + 1 
+           && incoming().diff(existing()).affectedKeys().hasOnly(['totalVisits', 'lastUpdated']))
+        );
+
+      allow delete: if isAdmin();
+    }
+    
+    // Support nested stats or daily metrics
+    match /stats/{docId}/daily/{dayId} {
+      allow get: if true;
+      allow list: if isAdmin();
+      
+      allow create: if isValidId(docId) && isValidId(dayId)
+        && incoming().count is number && incoming().count >= 0
+        && incoming().lastUpdated is string && incoming().lastUpdated.size() <= 40;
+        
+      allow update: if isValidId(docId) && isValidId(dayId)
+        && incoming().count is number && incoming().count >= 0
+        && (
+          isAdmin() ||
+          (incoming().count == existing().count + 1
+           && incoming().diff(existing()).affectedKeys().hasOnly(['count', 'lastUpdated']))
+        );
+        
+      allow delete: if isAdmin();
+    }
+  }
+}

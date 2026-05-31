@@ -1,0 +1,43 @@
+{
+  "entities": {
+    "Article": {
+      "title": "Article",
+      "description": "Un article de blog contenant des conseils ou méthodes sur le digital.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "L'ID unique de l'article" },
+        "title": { "type": "string", "description": "Le titre de l'article" },
+        "content": { "type": "string", "description": "Le contenu de l'article en Markdown" },
+        "category": { "type": "string", "description": "La catégorie (ex: Conseil, Méthode)" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Date de création" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Date de mise à jour" },
+        "views": { "type": "number", "description": "Nombre de vues" },
+        "readTime": { "type": "string", "description": "Temps de lecture estimé" },
+        "author": { "type": "string", "description": "Auteur de l'article" }
+      },
+      "required": ["id", "title", "content", "category", "createdAt", "updatedAt", "views", "author"]
+    },
+    "VisitStats": {
+      "title": "VisitStats",
+      "description": "Statistiques globales des visites sur le site.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "ID unique du document de statistiques" },
+        "totalVisits": { "type": "number", "description": "Nombre total de visites uniques/sessions" },
+        "dailyVisits": { "type": "object", "description": "Historique des visites par jour" },
+        "lastUpdated": { "type": "string", "format": "date-time", "description": "Dernière mise à jour" }
+      },
+      "required": ["id", "totalVisits", "dailyVisits", "lastUpdated"]
+    }
+  },
+  "firestore": {
+    "articles": {
+      "schema": "Article",
+      "description": "Collection de tous les articles de blog."
+    },
+    "stats": {
+      "schema": "VisitStats",
+      "description": "Collection pour stocker les statistiques globales du site."
+    }
+  }
+}
