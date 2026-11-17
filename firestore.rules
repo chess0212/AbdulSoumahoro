@@ -1,0 +1,172 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Common Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && request.auth.token.email == "technews203@gmail.com";
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Articles Validation Blueprint
+    function isValidArticle(data) {
+      return data.keys().hasAll(['id', 'title', 'content', 'category', 'author', 'views', 'readTime', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'title', 'content', 'category', 'author', 'views', 'readTime', 'createdAt', 'updatedAt', 'imageUrl'])
+        && data.id is string && data.id.size() >= 1 && data.id.size() <= 128
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && data.content is string && data.content.size() >= 1 && data.content.size() <= 100000
+        && data.category is string && data.category.size() >= 1 && data.category.size() <= 50 && data.category in ['Conseil', 'Méthode']
+        && data.author is string && data.author.size() >= 1 && data.author.size() <= 100
+        && data.readTime is string && data.readTime.size() >= 1 && data.readTime.size() <= 40
+        && data.views is number && data.views >= 0
+        && data.createdAt is string && data.createdAt.size() >= 1 && data.createdAt.size() <= 40
+        && data.updatedAt is string && data.updatedAt.size() >= 1 && data.updatedAt.size() <= 40
+        && (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 450000));
+    }
+
+    match /articles/{articleId} {
+      allow get: if isValidId(articleId);
+      allow list: if true;
+
+      allow create: if isAdmin()
+        && isValidId(articleId)
+        && isValidArticle(incoming())
+        && incoming().id == articleId
+        && incoming().views == 0;
+
+      allow update: if isValidId(articleId)
+        && isValidArticle(incoming())
+        && (
+          // Action 1: Admin edit article details
+          (isAdmin()
+            && incoming().createdAt == existing().createdAt
+            && incoming().id == existing().id
+            && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'content', 'category', 'updatedAt', 'readTime', 'imageUrl']))
+          ||
+          // Action 2: Public incremental view count
+          (incoming().views == existing().views + 1
+            && incoming().id == existing().id
+            && incoming().title == existing().title
+            && incoming().content == existing().content
+            && incoming().category == existing().category
+            && incoming().createdAt == existing().createdAt
+            && incoming().updatedAt == existing().updatedAt
+            && incoming().diff(existing()).affectedKeys().hasOnly(['views']))
+        );
+
+      allow delete: if isAdmin() && isValidId(articleId);
+    }
+
+    // Projects (Réalisations) Validation Blueprint
+    function isValidProject(data) {
+      return data.keys().hasAll(['id', 'title', 'description', 'category', 'client', 'year', 'imageUrl', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'title', 'description', 'category', 'client', 'year', 'imageUrl', 'liveUrl', 'technologies', 'featured', 'createdAt', 'updatedAt'])
+        && data.id is string && data.id.size() >= 1 && data.id.size() <= 128
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 160
+        && data.description is string && data.description.size() >= 1 && data.description.size() <= 5000
+        && data.category is string && data.category.size() >= 1 && data.category.size() <= 50 && data.category in ['Site Vitrine', 'E-Commerce', 'Application Web', 'Portail & Blog']
+        && data.client is string && data.client.size() >= 1 && data.client.size() <= 100
+        && data.year is string && data.year.size() >= 1 && data.year.size() <= 10
+        && data.imageUrl is string && data.imageUrl.size() >= 1 && data.imageUrl.size() <= 450000
+        && (!('liveUrl' in data) || (data.liveUrl is string && data.liveUrl.size() <= 500))
+        && (!('technologies' in data) || (data.technologies is list && data.technologies.size() <= 8 && (data.technologies.size() == 0 || (data.technologies[0] is string && data.technologies[0].size() <= 40))))
+        && (!('featured' in data) || data.featured is bool)
+        && data.createdAt is string && data.createdAt.size() >= 1 && data.createdAt.size() <= 40
+        && data.updatedAt is string && data.updatedAt.size() >= 1 && data.updatedAt.size() <= 40;
+    }
+
+    match /projects/{projectId} {
+      allow get: if isValidId(projectId);
+      allow list: if true;
+
+      allow create: if isAdmin()
+        && isValidId(projectId)
+        && isValidProject(incoming())
+        && incoming().id == projectId;
+
+      allow update: if isAdmin()
+        && isValidId(projectId)
+        && isValidProject(incoming())
+        && incoming().id == existing().id
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'category', 'client', 'year', 'imageUrl', 'liveUrl', 'technologies', 'featured', 'updatedAt']);
+
+      allow delete: if isAdmin() && isValidId(projectId);
+    }
+
+    // Stats Validation
+    function isValidStats(data) {
+      return data.keys().hasAll(['totalVisits', 'lastUpdated'])
+        && data.keys().hasOnly(['totalVisits', 'lastUpdated'])
+        && data.totalVisits is number && data.totalVisits >= 0
+        && data.lastUpdated is string && data.lastUpdated.size() >= 1 && data.lastUpdated.size() <= 40;
+    }
+
+    match /stats/{docId} {
+      allow get: if isValidId(docId);
+      allow list: if isAdmin();
+
+      allow create: if isValidId(docId)
+        && isValidStats(incoming());
+
+      allow update: if isValidId(docId)
+        && isValidStats(incoming())
+        && (
+          isAdmin() ||
+          (incoming().totalVisits == existing().totalVisits + 1
+           && incoming().diff(existing()).affectedKeys().hasOnly(['totalVisits', 'lastUpdated']))
+        );
+
+      allow delete: if isAdmin() && isValidId(docId);
+    }
+
+    function isValidDailyStats(data) {
+      return data.keys().hasAll(['count', 'lastUpdated'])
+        && data.keys().hasOnly(['count', 'lastUpdated'])
+        && data.count is number && data.count >= 0
+        && data.lastUpdated is string && data.lastUpdated.size() >= 1 && data.lastUpdated.size() <= 40;
+    }
+
+    match /stats/{docId}/daily/{dayId} {
+      allow get: if isValidId(docId) && isValidId(dayId);
+      allow list: if isAdmin();
+
+      allow create: if isValidId(docId) && isValidId(dayId)
+        && isValidDailyStats(incoming());
+
+      allow update: if isValidId(docId) && isValidId(dayId)
+        && isValidDailyStats(incoming())
+        && (
+          isAdmin() ||
+          (incoming().count == existing().count + 1
+           && incoming().diff(existing()).affectedKeys().hasOnly(['count', 'lastUpdated']))
+        );
+
+      allow delete: if isAdmin() && isValidId(docId) && isValidId(dayId);
+    }
+  }
+}

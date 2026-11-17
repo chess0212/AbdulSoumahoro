@@ -1,0 +1,80 @@
+{
+  "entities": {
+    "Article": {
+      "title": "Article",
+      "description": "Un article de blog contenant des conseils ou méthodes sur le digital, avec illustration optionnelle.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$", "description": "L'ID unique de l'article" },
+        "title": { "type": "string", "maxLength": 200, "description": "Le titre de l'article" },
+        "content": { "type": "string", "maxLength": 100000, "description": "Le contenu de l'article en Markdown" },
+        "category": { "type": "string", "enum": ["Conseil", "Méthode"], "maxLength": 50, "description": "La catégorie (Conseil ou Méthode)" },
+        "imageUrl": { "type": "string", "maxLength": 450000, "description": "URL ou image compressée de l'illustration de l'article" },
+        "createdAt": { "type": "string", "format": "date-time", "maxLength": 40, "description": "Date de création" },
+        "updatedAt": { "type": "string", "format": "date-time", "maxLength": 40, "description": "Date de mise à jour" },
+        "views": { "type": "number", "description": "Nombre de vues" },
+        "readTime": { "type": "string", "maxLength": 40, "description": "Temps de lecture estimé" },
+        "author": { "type": "string", "maxLength": 100, "description": "Auteur de l'article" }
+      },
+      "required": ["id", "title", "content", "category", "createdAt", "updatedAt", "views", "readTime", "author"]
+    },
+    "Project": {
+      "title": "Project",
+      "description": "Une réalisation web ou digitale présentée dans le portfolio.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$", "description": "L'ID unique de la réalisation" },
+        "title": { "type": "string", "maxLength": 160, "description": "Titre du projet" },
+        "description": { "type": "string", "maxLength": 5000, "description": "Présentation détaillée du projet et des résultats obtenus" },
+        "category": { "type": "string", "enum": ["Site Vitrine", "E-Commerce", "Application Web", "Portail & Blog"], "maxLength": 50, "description": "Catégorie du projet" },
+        "client": { "type": "string", "maxLength": 100, "description": "Nom du client ou secteur" },
+        "year": { "type": "string", "maxLength": 10, "description": "Année de livraison" },
+        "imageUrl": { "type": "string", "maxLength": 450000, "description": "URL ou image compressée d'aperçu du projet" },
+        "liveUrl": { "type": "string", "maxLength": 500, "description": "Lien optionnel vers le projet en ligne" },
+        "technologies": { "type": "array", "description": "Technologies clés utilisées (max 8)" },
+        "featured": { "type": "boolean", "description": "Indique si le projet est mis en avant" },
+        "createdAt": { "type": "string", "format": "date-time", "maxLength": 40, "description": "Date de création" },
+        "updatedAt": { "type": "string", "format": "date-time", "maxLength": 40, "description": "Date de mise à jour" }
+      },
+      "required": ["id", "title", "description", "category", "client", "year", "imageUrl", "createdAt", "updatedAt"]
+    },
+    "VisitStats": {
+      "title": "VisitStats",
+      "description": "Statistiques globales des visites sur le site.",
+      "type": "object",
+      "properties": {
+        "totalVisits": { "type": "number", "description": "Nombre total de visites uniques/sessions" },
+        "lastUpdated": { "type": "string", "format": "date-time", "maxLength": 40, "description": "Dernière mise à jour" }
+      },
+      "required": ["totalVisits", "lastUpdated"]
+    },
+    "DailyVisit": {
+      "title": "DailyVisit",
+      "description": "Compteur de visites par jour.",
+      "type": "object",
+      "properties": {
+        "count": { "type": "number", "description": "Nombre de visites pour ce jour" },
+        "lastUpdated": { "type": "string", "format": "date-time", "maxLength": 40, "description": "Dernière mise à jour" }
+      },
+      "required": ["count", "lastUpdated"]
+    }
+  },
+  "firestore": {
+    "/articles/{articleId}": {
+      "schema": "Article",
+      "description": "Collection de tous les articles de blog avec illustrations."
+    },
+    "/projects/{projectId}": {
+      "schema": "Project",
+      "description": "Collection de toutes les réalisations du portfolio."
+    },
+    "/stats/{docId}": {
+      "schema": "VisitStats",
+      "description": "Collection pour stocker les statistiques globales du site."
+    },
+    "/stats/{docId}/daily/{dayId}": {
+      "schema": "DailyVisit",
+      "description": "Sous-collection des visites journalières."
+    }
+  }
+}
